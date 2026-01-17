@@ -1,0 +1,112 @@
+import { useState } from 'react';
+import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { useStore } from '@/contexts/StoreContext';
+import { Product } from '@/types';
+
+const AdminProducts = () => {
+  const { products, addProduct, updateProduct, deleteProduct } = useStore();
+  const [search, setSearch] = useState('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [formData, setFormData] = useState({ name: '', description: '', price: '', category: 'shirts', stock: '', sku: '' });
+
+  const filteredProducts = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const product: Product = {
+      id: editingProduct?.id || Date.now().toString(),
+      name: formData.name,
+      description: formData.description,
+      price: parseInt(formData.price),
+      images: editingProduct?.images || ['/placeholder.svg'],
+      category: formData.category,
+      sizes: ['S', 'M', 'L', 'XL'],
+      colors: [{ name: 'Default', hex: '#000000' }],
+      stock: parseInt(formData.stock),
+      sku: formData.sku,
+      status: 'active',
+      createdAt: editingProduct?.createdAt || new Date().toISOString()
+    };
+    if (editingProduct) updateProduct(product);
+    else addProduct(product);
+    setIsDialogOpen(false);
+    resetForm();
+  };
+
+  const resetForm = () => {
+    setFormData({ name: '', description: '', price: '', category: 'shirts', stock: '', sku: '' });
+    setEditingProduct(null);
+  };
+
+  const handleEdit = (product: Product) => {
+    setEditingProduct(product);
+    setFormData({ name: product.name, description: product.description, price: product.price.toString(), category: product.category, stock: product.stock.toString(), sku: product.sku });
+    setIsDialogOpen(true);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between gap-4">
+        <h1 className="text-3xl font-display font-bold">Products</h1>
+        <Dialog open={isDialogOpen} onOpenChange={o => { setIsDialogOpen(o); if (!o) resetForm(); }}>
+          <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Add Product</Button></DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>{editingProduct ? 'Edit' : 'Add'} Product</DialogTitle></DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div><Label>Name</Label><Input value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required /></div>
+              <div><Label>Description</Label><Textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><Label>Price (₹)</Label><Input type="number" value={formData.price} onChange={e => setFormData({ ...formData, price: e.target.value })} required /></div>
+                <div><Label>Stock</Label><Input type="number" value={formData.stock} onChange={e => setFormData({ ...formData, stock: e.target.value })} required /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><Label>Category</Label>
+                  <Select value={formData.category} onValueChange={v => setFormData({ ...formData, category: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="shirts">Shirts</SelectItem><SelectItem value="jackets">Jackets</SelectItem><SelectItem value="bottoms">Bottoms</SelectItem></SelectContent>
+                  </Select>
+                </div>
+                <div><Label>SKU</Label><Input value={formData.sku} onChange={e => setFormData({ ...formData, sku: e.target.value })} required /></div>
+              </div>
+              <Button type="submit" className="w-full">{editingProduct ? 'Update' : 'Add'} Product</Button>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input placeholder="Search products..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
+      </div>
+
+      <div className="bg-card rounded-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-muted/50"><tr><th className="text-left p-4">Product</th><th className="text-left p-4">Category</th><th className="text-left p-4">Price</th><th className="text-left p-4">Stock</th><th className="text-left p-4">Actions</th></tr></thead>
+            <tbody>
+              {filteredProducts.map(product => (
+                <tr key={product.id} className="border-t">
+                  <td className="p-4"><div className="flex items-center gap-3"><img src={product.images[0]} className="w-10 h-12 object-cover rounded" /><span className="font-medium">{product.name}</span></div></td>
+                  <td className="p-4 capitalize">{product.category}</td>
+                  <td className="p-4">₹{product.price}</td>
+                  <td className="p-4"><Badge variant={product.stock > 10 ? 'default' : 'destructive'}>{product.stock}</Badge></td>
+                  <td className="p-4"><div className="flex gap-2"><Button variant="ghost" size="icon" onClick={() => handleEdit(product)}><Pencil className="h-4 w-4" /></Button><Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteProduct(product.id)}><Trash2 className="h-4 w-4" /></Button></div></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AdminProducts;
