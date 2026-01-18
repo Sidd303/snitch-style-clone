@@ -1,23 +1,22 @@
 import { useState } from 'react';
-import { Save, Store, Mail, Percent, Shield } from 'lucide-react';
+import { Save, Store, Percent, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { useStore } from '@/contexts/StoreContext';
+import { toast } from 'sonner';
 
 const AdminSettings = () => {
-  const { settings, updateSettings } = useStore();
-
   const [form, setForm] = useState({
-    storeName: settings?.storeName || '',
-    adminEmail: settings?.adminEmail || '',
-    taxRate: settings?.taxRate || '',
-    maintenance: settings?.maintenance || false
+    storeName: 'My Fashion Store',
+    adminEmail: 'admin@store.com',
+    taxRate: '18',
+    maintenance: false
   });
 
   const handleSave = () => {
-    updateSettings(form);
+    localStorage.setItem('store_settings', JSON.stringify(form));
+    toast.success('Settings saved successfully');
   };
 
   return (
