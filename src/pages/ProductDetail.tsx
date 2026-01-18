@@ -240,8 +240,19 @@ const ProductDetail = () => {
           <section className="mt-16">
             <h2 className="text-2xl font-display font-bold mb-8">You May Also Like</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-              {relatedProducts.map((p, i) => (
-                <ProductCard key={p.id} product={p} index={i} />
+              {relatedProducts.map((p) => (
+                <ProductCard 
+                  key={p.id} 
+                  id={p.id}
+                  name={p.name}
+                  price={p.price}
+                  originalPrice={p.originalPrice}
+                  image={p.images[0]}
+                  hoverImage={p.images[1]}
+                  isNew={p.isNew}
+                  isSale={p.isSale}
+                  discount={p.originalPrice ? Math.round((1 - p.price / p.originalPrice) * 100) : undefined}
+                />
               ))}
             </div>
           </section>

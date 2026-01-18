@@ -7,6 +7,9 @@ import { StoreProvider } from "@/contexts/StoreContext";
 import Index from "./pages/Index";
 import Clothing from "./pages/Clothing";
 import ProductDetail from "./pages/ProductDetail";
+import Cart from "./pages/Cart";
+import PlaceOrder from "./pages/PlaceOrder";
+import Payment from "./pages/Payment";
 import Checkout from "./pages/Checkout";
 import OrderSuccess from "./pages/OrderSuccess";
 import Wishlist from "./pages/Wishlist";
@@ -37,6 +40,9 @@ const App = () => (
             <Route path="/sale" element={<Clothing />} />
             <Route path="/accessories" element={<Clothing />} />
             <Route path="/product/:id" element={<ProductDetail />} />
+            <Route path="/cart" element={<Cart />} />
+            <Route path="/placeorder" element={<PlaceOrder />} />
+            <Route path="/payment" element={<Payment />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/order-success/:id" element={<OrderSuccess />} />
             <Route path="/wishlist" element={<Wishlist />} />

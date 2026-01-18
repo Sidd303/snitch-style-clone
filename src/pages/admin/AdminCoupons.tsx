@@ -19,19 +19,12 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { useStore } from '@/contexts/StoreContext';
-
-type Coupon = {
-  id: string;
-  code: string;
-  type: 'percentage' | 'flat';
-  value: number;
-  active: boolean;
-  createdAt: string;
-};
+import { toast } from 'sonner';
 
 const AdminCoupons = () => {
-  const { coupons = [], addCoupon, deleteCoupon } = useStore();
+  const { coupons = [] } = useStore();
   const [open, setOpen] = useState(false);
+  const [localCoupons, setLocalCoupons] = useState(coupons);
   const [form, setForm] = useState({
     code: '',
     type: 'percentage',
@@ -41,18 +34,28 @@ const AdminCoupons = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const coupon: Coupon = {
+    const newCoupon = {
       id: Date.now().toString(),
       code: form.code.toUpperCase(),
-      type: form.type as any,
+      type: form.type === 'flat' ? 'fixed' as const : 'percentage' as const,
       value: Number(form.value),
-      active: true,
-      createdAt: new Date().toISOString()
+      isActive: true,
+      minPurchase: 0,
+      maxDiscount: form.type === 'percentage' ? 500 : undefined,
+      expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      usageLimit: 100,
+      usedCount: 0
     };
 
-    addCoupon(coupon);
+    setLocalCoupons(prev => [...prev, newCoupon]);
     setOpen(false);
     setForm({ code: '', type: 'percentage', value: '' });
+    toast.success('Coupon created successfully');
+  };
+
+  const deleteCoupon = (id: string) => {
+    setLocalCoupons(prev => prev.filter(c => c.id !== id));
+    toast.success('Coupon deleted');
   };
 
   return (
@@ -139,14 +142,14 @@ const AdminCoupons = () => {
             </tr>
           </thead>
           <tbody>
-            {coupons.length === 0 ? (
+            {localCoupons.length === 0 ? (
               <tr>
                 <td colSpan={4} className="p-8 text-center text-muted-foreground">
                   No coupons created
                 </td>
               </tr>
             ) : (
-              coupons.map(coupon => (
+              localCoupons.map(coupon => (
                 <tr key={coupon.id} className="border-t">
                   <td className="p-4 font-mono">{coupon.code}</td>
                   <td className="p-4">
@@ -155,8 +158,8 @@ const AdminCoupons = () => {
                       : `₹${coupon.value}`}
                   </td>
                   <td className="p-4">
-                    <Badge variant={coupon.active ? 'default' : 'secondary'}>
-                      {coupon.active ? 'Active' : 'Inactive'}
+                    <Badge variant={coupon.isActive ? 'default' : 'secondary'}>
+                      {coupon.isActive ? 'Active' : 'Inactive'}
                     </Badge>
                   </td>
                   <td className="p-4">
@@ -164,7 +167,10 @@ const AdminCoupons = () => {
                       <Button
                         size="icon"
                         variant="ghost"
-                        onClick={() => navigator.clipboard.writeText(coupon.code)}
+                        onClick={() => {
+                          navigator.clipboard.writeText(coupon.code);
+                          toast.success('Copied to clipboard');
+                        }}
                       >
                         <Copy className="h-4 w-4" />
                       </Button>
