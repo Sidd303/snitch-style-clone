@@ -1,23 +1,49 @@
 import { motion } from 'framer-motion';
-import { Package, ShoppingCart, DollarSign, Users, TrendingUp, Clock } from 'lucide-react';
-import { useStore } from '@/contexts/StoreContext';
+import { Package, ShoppingCart, DollarSign, Clock, TrendingUp, Users } from 'lucide-react';
+import { useProducts } from '@/hooks/useProducts';
+import { useAllOrders } from '@/hooks/useOrders';
 
 const AdminDashboard = () => {
-  const { products, orders } = useStore();
-  
-  const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
-  const pendingOrders = orders.filter(o => o.status === 'pending').length;
+  const { data: productsData, isLoading: productsLoading } = useProducts({ isActive: true });
+  const { data: orders, isLoading: ordersLoading } = useAllOrders();
+
+  const totalRevenue = orders?.reduce((sum, o) => sum + Number(o.total), 0) || 0;
+  const pendingOrders = orders?.filter(o => o.status === 'pending').length || 0;
+  const paidOrders = orders?.filter(o => o.payment_status === 'paid').length || 0;
 
   const stats = [
-    { label: 'Total Products', value: products.length, icon: Package, color: 'bg-blue-500' },
-    { label: 'Total Orders', value: orders.length, icon: ShoppingCart, color: 'bg-green-500' },
-    { label: 'Total Revenue', value: `₹${totalRevenue.toLocaleString()}`, icon: DollarSign, color: 'bg-purple-500' },
-    { label: 'Pending Orders', value: pendingOrders, icon: Clock, color: 'bg-orange-500' }
+    { 
+      label: 'Total Products', 
+      value: productsLoading ? '...' : productsData?.count || 0, 
+      icon: Package, 
+      color: 'bg-blue-500' 
+    },
+    { 
+      label: 'Total Orders', 
+      value: ordersLoading ? '...' : orders?.length || 0, 
+      icon: ShoppingCart, 
+      color: 'bg-green-500' 
+    },
+    { 
+      label: 'Total Revenue', 
+      value: ordersLoading ? '...' : `₹${totalRevenue.toLocaleString()}`, 
+      icon: DollarSign, 
+      color: 'bg-purple-500' 
+    },
+    { 
+      label: 'Pending Orders', 
+      value: ordersLoading ? '...' : pendingOrders, 
+      icon: Clock, 
+      color: 'bg-orange-500' 
+    }
   ];
 
   return (
     <div className="space-y-8">
-      <h1 className="text-3xl font-display font-bold">Dashboard</h1>
+      <div>
+        <h1 className="text-3xl font-display font-bold">Dashboard</h1>
+        <p className="text-muted-foreground mt-1">Welcome to your admin dashboard</p>
+      </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, idx) => (
@@ -44,17 +70,26 @@ const AdminDashboard = () => {
       <div className="grid lg:grid-cols-2 gap-6">
         <div className="bg-card rounded-lg p-6">
           <h2 className="text-lg font-semibold mb-4">Recent Orders</h2>
-          {orders.length === 0 ? (
+          {ordersLoading ? (
+            <div className="animate-pulse space-y-4">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="h-12 bg-muted rounded" />
+              ))}
+            </div>
+          ) : orders?.length === 0 ? (
             <p className="text-muted-foreground">No orders yet</p>
           ) : (
             <div className="space-y-4">
-              {orders.slice(0, 5).map(order => (
+              {orders?.slice(0, 5).map(order => (
                 <div key={order.id} className="flex justify-between items-center py-2 border-b last:border-0">
                   <div>
-                    <p className="font-medium">{order.id}</p>
-                    <p className="text-sm text-muted-foreground">{order.customerName}</p>
+                    <p className="font-medium">{order.order_number}</p>
+                    <p className="text-sm text-muted-foreground">{order.customer_name}</p>
                   </div>
-                  <span className="font-semibold">₹{order.total.toLocaleString()}</span>
+                  <div className="text-right">
+                    <span className="font-semibold">₹{Number(order.total).toLocaleString()}</span>
+                    <p className="text-xs text-muted-foreground capitalize">{order.status}</p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -63,17 +98,38 @@ const AdminDashboard = () => {
 
         <div className="bg-card rounded-lg p-6">
           <h2 className="text-lg font-semibold mb-4">Top Products</h2>
-          <div className="space-y-4">
-            {products.slice(0, 5).map(product => (
-              <div key={product.id} className="flex items-center gap-4">
-                <img src={product.images[0]} alt={product.name} className="w-12 h-14 object-cover rounded" />
-                <div className="flex-1">
-                  <p className="font-medium truncate">{product.name}</p>
-                  <p className="text-sm text-muted-foreground">₹{product.price}</p>
+          {productsLoading ? (
+            <div className="animate-pulse space-y-4">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="flex gap-4">
+                  <div className="w-12 h-14 bg-muted rounded" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-muted rounded w-3/4" />
+                    <div className="h-3 bg-muted rounded w-1/4" />
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {productsData?.products?.slice(0, 5).map(product => (
+                <div key={product.id} className="flex items-center gap-4">
+                  <img 
+                    src={product.images[0] || '/placeholder.svg'} 
+                    alt={product.name} 
+                    className="w-12 h-14 object-cover rounded" 
+                  />
+                  <div className="flex-1">
+                    <p className="font-medium truncate">{product.name}</p>
+                    <p className="text-sm text-muted-foreground">₹{product.price}</p>
+                  </div>
+                  <span className="text-sm text-muted-foreground">
+                    Stock: {product.stock}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
