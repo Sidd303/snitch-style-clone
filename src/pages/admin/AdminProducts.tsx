@@ -7,38 +7,61 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { useStore } from '@/contexts/StoreContext';
-import { Product } from '@/types';
+import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from '@/hooks/useProducts';
+import { DbProduct } from '@/lib/supabase/products';
 
 const AdminProducts = () => {
-  const { products, addProduct, updateProduct, deleteProduct } = useStore();
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingProduct, setEditingProduct] = useState<DbProduct | null>(null);
   const [formData, setFormData] = useState({ name: '', description: '', price: '', category: 'shirts', stock: '', sku: '' });
 
-  const filteredProducts = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+  const { data: productsData, isLoading } = useProducts({ search: search || undefined });
+  const createProduct = useCreateProduct();
+  const updateProduct = useUpdateProduct();
+  const deleteProduct = useDeleteProduct();
+
+  const products = productsData?.products || [];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const product: Product = {
-      id: editingProduct?.id || Date.now().toString(),
+    
+    const productData = {
       name: formData.name,
-      description: formData.description,
+      description: formData.description || null,
       price: parseInt(formData.price),
       images: editingProduct?.images || ['/placeholder.svg'],
-      category: formData.category,
-      sizes: ['S', 'M', 'L', 'XL'],
-      colors: [{ name: 'Default', hex: '#000000' }],
+      sizes: editingProduct?.sizes || ['S', 'M', 'L', 'XL'],
+      colors: editingProduct?.colors || [{ name: 'Default', hex: '#000000' }],
       stock: parseInt(formData.stock),
-      sku: formData.sku,
-      status: 'active',
-      createdAt: editingProduct?.createdAt || new Date().toISOString()
+      sku: formData.sku || null,
+      is_active: true,
+      is_featured: false,
+      is_new: false,
+      is_sale: false,
+      metadata: {},
+      category_id: null,
+      original_price: null,
     };
-    if (editingProduct) updateProduct(product);
-    else addProduct(product);
-    setIsDialogOpen(false);
-    resetForm();
+    
+    if (editingProduct) {
+      updateProduct.mutate({ 
+        id: editingProduct.id, 
+        updates: productData 
+      }, {
+        onSuccess: () => {
+          setIsDialogOpen(false);
+          resetForm();
+        }
+      });
+    } else {
+      createProduct.mutate(productData, {
+        onSuccess: () => {
+          setIsDialogOpen(false);
+          resetForm();
+        }
+      });
+    }
   };
 
   const resetForm = () => {
@@ -46,10 +69,23 @@ const AdminProducts = () => {
     setEditingProduct(null);
   };
 
-  const handleEdit = (product: Product) => {
+  const handleEdit = (product: DbProduct) => {
     setEditingProduct(product);
-    setFormData({ name: product.name, description: product.description, price: product.price.toString(), category: product.category, stock: product.stock.toString(), sku: product.sku });
+    setFormData({ 
+      name: product.name, 
+      description: product.description || '', 
+      price: product.price.toString(), 
+      category: 'shirts', 
+      stock: product.stock.toString(), 
+      sku: product.sku || '' 
+    });
     setIsDialogOpen(true);
+  };
+
+  const handleDelete = (productId: string) => {
+    if (confirm('Are you sure you want to delete this product?')) {
+      deleteProduct.mutate(productId);
+    }
   };
 
   return (
@@ -74,9 +110,11 @@ const AdminProducts = () => {
                     <SelectContent><SelectItem value="shirts">Shirts</SelectItem><SelectItem value="jackets">Jackets</SelectItem><SelectItem value="bottoms">Bottoms</SelectItem></SelectContent>
                   </Select>
                 </div>
-                <div><Label>SKU</Label><Input value={formData.sku} onChange={e => setFormData({ ...formData, sku: e.target.value })} required /></div>
+                <div><Label>SKU</Label><Input value={formData.sku} onChange={e => setFormData({ ...formData, sku: e.target.value })} /></div>
               </div>
-              <Button type="submit" className="w-full">{editingProduct ? 'Update' : 'Add'} Product</Button>
+              <Button type="submit" className="w-full" disabled={createProduct.isPending || updateProduct.isPending}>
+                {createProduct.isPending || updateProduct.isPending ? 'Saving...' : editingProduct ? 'Update' : 'Add'} Product
+              </Button>
             </form>
           </DialogContent>
         </Dialog>
@@ -92,15 +130,29 @@ const AdminProducts = () => {
           <table className="w-full">
             <thead className="bg-muted/50"><tr><th className="text-left p-4">Product</th><th className="text-left p-4">Category</th><th className="text-left p-4">Price</th><th className="text-left p-4">Stock</th><th className="text-left p-4">Actions</th></tr></thead>
             <tbody>
-              {filteredProducts.map(product => (
-                <tr key={product.id} className="border-t">
-                  <td className="p-4"><div className="flex items-center gap-3"><img src={product.images[0]} className="w-10 h-12 object-cover rounded" /><span className="font-medium">{product.name}</span></div></td>
-                  <td className="p-4 capitalize">{product.category}</td>
-                  <td className="p-4">₹{product.price}</td>
-                  <td className="p-4"><Badge variant={product.stock > 10 ? 'default' : 'destructive'}>{product.stock}</Badge></td>
-                  <td className="p-4"><div className="flex gap-2"><Button variant="ghost" size="icon" onClick={() => handleEdit(product)}><Pencil className="h-4 w-4" /></Button><Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteProduct(product.id)}><Trash2 className="h-4 w-4" /></Button></div></td>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={5} className="p-8 text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                  </td>
                 </tr>
-              ))}
+              ) : products.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                    No products found
+                  </td>
+                </tr>
+              ) : (
+                products.map(product => (
+                  <tr key={product.id} className="border-t">
+                    <td className="p-4"><div className="flex items-center gap-3"><img src={product.images[0] || '/placeholder.svg'} className="w-10 h-12 object-cover rounded" /><span className="font-medium">{product.name}</span></div></td>
+                    <td className="p-4 capitalize">-</td>
+                    <td className="p-4">₹{product.price}</td>
+                    <td className="p-4"><Badge variant={product.stock > 10 ? 'default' : 'destructive'}>{product.stock}</Badge></td>
+                    <td className="p-4"><div className="flex gap-2"><Button variant="ghost" size="icon" onClick={() => handleEdit(product)}><Pencil className="h-4 w-4" /></Button><Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(product.id)}><Trash2 className="h-4 w-4" /></Button></div></td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
