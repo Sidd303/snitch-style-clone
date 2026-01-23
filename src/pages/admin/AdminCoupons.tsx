@@ -18,13 +18,14 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { useStore } from '@/contexts/StoreContext';
+import { useCoupons, useCreateCoupon, useDeleteCoupon } from '@/hooks/useCoupons';
 import { toast } from 'sonner';
 
 const AdminCoupons = () => {
-  const { coupons = [] } = useStore();
+  const { data: coupons = [], isLoading } = useCoupons();
+  const createCoupon = useCreateCoupon();
+  const deleteCouponMutation = useDeleteCoupon();
   const [open, setOpen] = useState(false);
-  const [localCoupons, setLocalCoupons] = useState(coupons);
   const [form, setForm] = useState({
     code: '',
     type: 'percentage',
@@ -34,28 +35,27 @@ const AdminCoupons = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const newCoupon = {
-      id: Date.now().toString(),
+    createCoupon.mutate({
       code: form.code.toUpperCase(),
-      type: form.type === 'flat' ? 'fixed' as const : 'percentage' as const,
+      type: form.type === 'flat' ? 'fixed' : 'percentage',
       value: Number(form.value),
-      isActive: true,
-      minPurchase: 0,
-      maxDiscount: form.type === 'percentage' ? 500 : undefined,
-      expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      usageLimit: 100,
-      usedCount: 0
-    };
-
-    setLocalCoupons(prev => [...prev, newCoupon]);
-    setOpen(false);
-    setForm({ code: '', type: 'percentage', value: '' });
-    toast.success('Coupon created successfully');
+      is_active: true,
+      min_purchase: 0,
+      max_discount: form.type === 'percentage' ? 500 : null,
+      expiry_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      usage_limit: 100,
+    }, {
+      onSuccess: () => {
+        setOpen(false);
+        setForm({ code: '', type: 'percentage', value: '' });
+      }
+    });
   };
 
-  const deleteCoupon = (id: string) => {
-    setLocalCoupons(prev => prev.filter(c => c.id !== id));
-    toast.success('Coupon deleted');
+  const handleDelete = (id: string) => {
+    if (confirm('Are you sure you want to delete this coupon?')) {
+      deleteCouponMutation.mutate(id);
+    }
   };
 
   return (
@@ -123,8 +123,8 @@ const AdminCoupons = () => {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full">
-                Create Coupon
+              <Button type="submit" className="w-full" disabled={createCoupon.isPending}>
+                {createCoupon.isPending ? 'Creating...' : 'Create Coupon'}
               </Button>
             </form>
           </DialogContent>
@@ -142,14 +142,20 @@ const AdminCoupons = () => {
             </tr>
           </thead>
           <tbody>
-            {localCoupons.length === 0 ? (
+            {isLoading ? (
+              <tr>
+                <td colSpan={4} className="p-8 text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                </td>
+              </tr>
+            ) : coupons.length === 0 ? (
               <tr>
                 <td colSpan={4} className="p-8 text-center text-muted-foreground">
                   No coupons created
                 </td>
               </tr>
             ) : (
-              localCoupons.map(coupon => (
+              coupons.map(coupon => (
                 <tr key={coupon.id} className="border-t">
                   <td className="p-4 font-mono">{coupon.code}</td>
                   <td className="p-4">
@@ -158,8 +164,8 @@ const AdminCoupons = () => {
                       : `₹${coupon.value}`}
                   </td>
                   <td className="p-4">
-                    <Badge variant={coupon.isActive ? 'default' : 'secondary'}>
-                      {coupon.isActive ? 'Active' : 'Inactive'}
+                    <Badge variant={coupon.is_active ? 'default' : 'secondary'}>
+                      {coupon.is_active ? 'Active' : 'Inactive'}
                     </Badge>
                   </td>
                   <td className="p-4">
@@ -178,7 +184,7 @@ const AdminCoupons = () => {
                         size="icon"
                         variant="ghost"
                         className="text-destructive"
-                        onClick={() => deleteCoupon(coupon.id)}
+                        onClick={() => handleDelete(coupon.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
